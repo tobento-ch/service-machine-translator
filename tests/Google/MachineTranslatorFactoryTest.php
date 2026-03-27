@@ -21,6 +21,7 @@ use Tobento\Service\MachineTranslator\Google\MachineTranslator;
 use Tobento\Service\MachineTranslator\Google\MachineTranslatorFactory;
 use Tobento\Service\MachineTranslator\MachineTranslatorFactoryInterface;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy;
 
 class MachineTranslatorFactoryTest extends TestCase
 {
@@ -112,5 +113,51 @@ class MachineTranslatorFactoryTest extends TestCase
         $factory->createTranslator('google', [
             'apiKey' => '123',
         ]);
+    }
+    
+    public function testTranslatorUsesNullStrategyIfNoneProvided(): void
+    {
+        $factory = $this->createFactory();
+
+        $translator = $factory->createTranslator('google', [
+            'apiKey' => '123',
+        ]);
+
+        $this->assertInstanceOf(
+            NonTranslatableStrategy\NullStrategy::class,
+            $translator->nonTranslatableStrategy()
+        );
+    }
+
+    public function testTranslatorUsesStrategyFromDefaults(): void
+    {
+        $strategy = new NonTranslatableStrategy\Placeholder();
+
+        $factory = $this->createFactory([
+            'nonTranslatableStrategy' => $strategy,
+        ]);
+
+        $translator = $factory->createTranslator('google', [
+            'apiKey' => '123',
+        ]);
+
+        $this->assertSame($strategy, $translator->nonTranslatableStrategy());
+    }
+
+    public function testTranslatorConfigOverridesDefaultStrategy(): void
+    {
+        $default = new NonTranslatableStrategy\Placeholder();
+        $override = new NonTranslatableStrategy\NullStrategy();
+
+        $factory = $this->createFactory([
+            'nonTranslatableStrategy' => $default,
+        ]);
+
+        $translator = $factory->createTranslator('google', [
+            'apiKey' => '123',
+            'nonTranslatableStrategy' => $override,
+        ]);
+
+        $this->assertSame($override, $translator->nonTranslatableStrategy());
     }
 }

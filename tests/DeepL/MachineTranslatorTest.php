@@ -23,11 +23,15 @@ use Tobento\Service\MachineTranslator\DeepL\MachineTranslator;
 use Tobento\Service\MachineTranslator\Exception\QuotaExceededException;
 use Tobento\Service\MachineTranslator\Exception\TranslateException;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class MachineTranslatorTest extends TestCase
 {
-    protected function createTranslatorWithResponse(Response $response): MachineTranslator&MachineTranslatorInterface
-    {
+    protected function createTranslatorWithResponse(
+        Response $response,
+        null|NonTranslatableStrategyInterface $strategy = null,
+    ): MachineTranslator&MachineTranslatorInterface {
         // Tiny fake PSR-18 client
         $client = new class($response) implements ClientInterface {
             public function __construct(private \Psr\Http\Message\ResponseInterface $response) {}
@@ -46,6 +50,7 @@ class MachineTranslatorTest extends TestCase
             endpoint: 'https://api.deepl.com/v2/translate',
             apiKey: 'secret-key',
             name: 'deepl-test',
+            nonTranslatableStrategy: $strategy ?: new NullStrategy(),
         );
     }
 
@@ -62,13 +67,18 @@ class MachineTranslatorTest extends TestCase
         );
     }
 
-    public function testNameEndpointApiKey(): void
+    public function testCustomGetterMethods(): void
     {
         $translator = $this->createTranslatorWithResponse(new Response(200, [], '{"translations": []}'));
 
         $this->assertSame('deepl-test', $translator->name());
         $this->assertSame('https://api.deepl.com/v2/translate', $translator->endpoint());
         $this->assertSame('secret-key', $translator->apiKey());
+        
+        $this->assertInstanceOf(
+            NonTranslatableStrategyInterface::class,
+            $translator->nonTranslatableStrategy()
+        );
     }
 
     public function testTranslateManyReturnsExpectedTexts(): void
@@ -172,5 +182,31 @@ class MachineTranslatorTest extends TestCase
         );
 
         $translator->translate('Hello', 'de');
+    }
+    
+    public function testTranslatorUsesPassedStrategy(): void
+    {
+        // DeepL returns: {"translations": [{"text": "..."}]}
+        $json = json_encode([
+            'translations' => [
+                ['text' => '[[PROTECT]]Hallo[[/PROTECT]]']
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+
+        $strategy = new \Tobento\Service\MachineTranslator\Test\FakeStrategy();
+
+        $translator = $this->createTranslatorWithResponse(
+            new Response(200, ['Content-Type' => 'application/json'], $json),
+            $strategy
+        );
+
+        $result = $translator->translate('Hello', 'de');
+
+        // Strategy must have been used
+        $this->assertTrue($strategy->protectCalled);
+        $this->assertTrue($strategy->unprotectCalled);
+
+        // Final result must be unprotected
+        $this->assertSame('Hallo', $result);
     }
 }

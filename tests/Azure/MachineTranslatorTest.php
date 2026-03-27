@@ -23,11 +23,15 @@ use Tobento\Service\MachineTranslator\Azure\MachineTranslator;
 use Tobento\Service\MachineTranslator\Exception\QuotaExceededException;
 use Tobento\Service\MachineTranslator\Exception\TranslateException;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class MachineTranslatorTest extends TestCase
 {
-    protected function createTranslatorWithResponse(Response $response): MachineTranslator&MachineTranslatorInterface
-    {
+    protected function createTranslatorWithResponse(
+        Response $response,
+        null|NonTranslatableStrategyInterface $strategy = null,
+    ): MachineTranslator&MachineTranslatorInterface {
         $client = new class($response) implements ClientInterface {
             public function __construct(private \Psr\Http\Message\ResponseInterface $response) {}
             public function sendRequest(RequestInterface $request): \Psr\Http\Message\ResponseInterface
@@ -46,6 +50,7 @@ class MachineTranslatorTest extends TestCase
             region: 'westeurope',
             apiKey: 'secret',
             name: 'azure-test',
+            nonTranslatableStrategy: $strategy ?: new NullStrategy(),
         );
     }
 
@@ -63,7 +68,7 @@ class MachineTranslatorTest extends TestCase
         );
     }
 
-    public function testNameEndpointRegionApiKey(): void
+    public function testCustomGetterMethods(): void
     {
         $translator = $this->createTranslatorWithResponse(new Response(200, [], '[]'));
 
@@ -71,6 +76,11 @@ class MachineTranslatorTest extends TestCase
         $this->assertSame('https://example.azure.com', $translator->endpoint());
         $this->assertSame('westeurope', $translator->region());
         $this->assertSame('secret', $translator->apiKey());
+        
+        $this->assertInstanceOf(
+            NonTranslatableStrategyInterface::class,
+            $translator->nonTranslatableStrategy()
+        );
     }
 
     public function testTranslateManyReturnsExpectedTexts(): void
@@ -155,5 +165,28 @@ class MachineTranslatorTest extends TestCase
         );
 
         $translator->translate('Hello', 'de');
+    }
+    
+    public function testTranslatorUsesPassedStrategy(): void
+    {
+        $json = json_encode([
+            ['translations' => [['text' => '[[PROTECT]]Hallo[[/PROTECT]]']]],
+        ], JSON_UNESCAPED_UNICODE);
+
+        $strategy = new \Tobento\Service\MachineTranslator\Test\FakeStrategy();
+
+        $translator = $this->createTranslatorWithResponse(
+            new Response(200, ['Content-Type' => 'application/json'], $json),
+            $strategy
+        );
+
+        $result = $translator->translate('Hello', 'de');
+
+        // Strategy must have been used
+        $this->assertTrue($strategy->protectCalled);
+        $this->assertTrue($strategy->unprotectCalled);
+
+        // Final result must be unprotected
+        $this->assertSame('Hallo', $result);
     }
 }
