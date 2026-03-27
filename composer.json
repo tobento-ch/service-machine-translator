@@ -1,6 +1,6 @@
 {
     "name": "tobento/service-machine-translator",
-    "version": "2.0",
+    "version": "2.0.1",
     "type": "library",
     "description": "A flexible and extensible machine translator service built around clean interfaces.",
     "keywords": [
