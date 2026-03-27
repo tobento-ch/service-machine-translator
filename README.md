@@ -26,6 +26,11 @@ It ships with multiple translator implementations, each following the same inter
     - [Translators](#translators)
         - [Default Translators](#default-translators)
         - [Lazy Translators](#lazy-translators)
+    - [Non-Translatable Strategies](#non-translatable-strategies)
+        - [Composite Strategy](#composite-strategy)
+        - [Null Strategy](#null-strategy)
+        - [Placeholder Strategy](#placeholder-strategy)
+        - [Using Strategies with Translators](#using-strategies-with-translators)
 - [Credits](#credits)
 ___
 
@@ -153,6 +158,9 @@ $translator = $factory->createTranslator(
 var_dump($translator instanceof MachineTranslatorInterface);
 ```
 
+> This translator supports non-translatable strategies.  
+> See [Using Strategies with Translators](#using-strategies-with-translators).
+
 ### DeepL Translator
 
 #### Translator
@@ -206,6 +214,9 @@ var_dump($translator instanceof MachineTranslatorInterface);
 // bool(true)
 ```
 
+> This translator supports non-translatable strategies.  
+> See [Using Strategies with Translators](#using-strategies-with-translators).
+
 ### Google Translator
 
 #### Translator
@@ -258,6 +269,9 @@ $translator = $factory->createTranslator(
 var_dump($translator instanceof MachineTranslatorInterface);
 // bool(true)
 ```
+
+> This translator supports non-translatable strategies.  
+> See [Using Strategies with Translators](#using-strategies-with-translators).
 
 ### Null Translator
 
@@ -485,6 +499,101 @@ $translated = $translators->translate(
     text: 'Hello World',
     locale: 'de'
 );
+```
+
+## Non-Translatable Strategies
+
+Non-translatable strategies let you protect parts of a text from being altered during translation. This is essential when working with placeholders, template variables, IDs, or any content that must remain exactly as it is. A strategy wraps these segments before sending the text to the translation API and restores them afterward, ensuring your dynamic values stay intact across all translators.
+
+### Composite Strategy
+
+The Composite strategy allows you to combine multiple non-translatable strategies and apply them in sequence. Each strategy performs its own protection logic, making it easy to mix behaviors. For example, protecting both indicator-based placeholders like `:name` and wrapper-based placeholders like `{id}`. Protection is applied in order, while unprotection runs in reverse order to safely restore the original text.
+
+```php
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
+
+$strategy = new NonTranslatableStrategy\Composite(
+    new NonTranslatableStrategy\Placeholder(),
+);
+
+var_dump($strategy instanceof NonTranslatableStrategyInterface);
+// bool(true)
+```
+
+### Null Strategy
+
+The Null strategy performs no protection at all. It simply returns the text unchanged during both protection and unprotection phases. This is useful when you want to disable placeholder handling entirely or when working with translators that do not require any special processing.
+
+```php
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
+
+$strategy = new NonTranslatableStrategy\NullStrategy();
+
+var_dump($strategy instanceof NonTranslatableStrategyInterface);
+// bool(true)
+```
+
+### Placeholder Strategy
+
+The Placeholder strategy protects placeholder segments such as `:name`, `{id}`, or `[[tag]]` from being translated. It detects both indicator-based placeholders (e.g. `:name`) and wrapper-based placeholders (e.g. `{name}`, `[[name]]`) and wraps them in configurable markers during translation. After translation, the markers are removed to restore the original placeholders exactly as they were.
+
+```php
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
+
+$strategy = new NonTranslatableStrategy\Placeholder(
+    indicators: [':'],
+    wrappers: [['{', '}']],
+    marker: ['<nt>', '</nt>'],
+);
+
+var_dump($strategy instanceof NonTranslatableStrategyInterface);
+// bool(true)
+```
+
+### Using Strategies with Translators
+
+In most applications, translators and non-translatable strategies are created through factories rather than being instantiated manually. A strategy's `protect()` method runs before the text is sent to the translation API, and `unprotect()` runs after the translated text is received. This ensures that placeholders, variables, or other protected segments remain unchanged throughout the translation process.
+
+You can configure a non-translatable strategy either in the factory defaults or per translator.  
+Defaults are merged with the configuration passed to `createTranslator()`.
+
+```php
+use Tobento\Service\MachineTranslator\Azure\MachineTranslatorFactory;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy;
+use Tobento\Service\MachineTranslator\MachineTranslatorFactoryInterface;
+
+// Create a factory with your HTTP client and PSR-17 factories
+$factory = new MachineTranslatorFactory(
+    client: $client, // ClientInterface
+    requestFactory: $requestFactory, // RequestFactoryInterface
+    streamFactory: $streamFactory, // StreamFactoryInterface
+
+    // Optional defaults (you may override any of them)
+    defaults: [
+        'nonTranslatableStrategy' => new NonTranslatableStrategy\Placeholder(),
+        // 'endpoint' => 'https://api.cognitive.microsofttranslator.com',
+        // 'region' => 'westeurope',
+    ],
+);
+
+// Create a translator (only apiKey is required)
+$translator = $factory->createTranslator(
+    name: 'azure',
+    config: [
+        'apiKey' => 'YOUR_API_KEY',
+
+        // Optional overrides (defaults shown)
+        //'nonTranslatableStrategy' => new NonTranslatableStrategy\NullStrategy(),
+        // 'endpoint' => 'https://api.cognitive.microsofttranslator.com',
+        // 'region' => 'westeurope',
+    ]
+);
+
+echo $translator->translate('Hello :name', 'de');
+// "Hallo :name"
 ```
 
 # Credits
