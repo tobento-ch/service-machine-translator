@@ -19,6 +19,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Tobento\Service\MachineTranslator\Exception\QuotaExceededException;
 use Tobento\Service\MachineTranslator\Exception\TranslateException;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class MachineTranslator implements MachineTranslatorInterface
 {
@@ -32,6 +34,7 @@ class MachineTranslator implements MachineTranslatorInterface
      * @param string $region
      * @param string $apiKey
      * @param string $name
+     * @param NonTranslatableStrategyInterface $nonTranslatableStrategy
      */
     public function __construct(
         protected ClientInterface $client,
@@ -41,6 +44,7 @@ class MachineTranslator implements MachineTranslatorInterface
         protected string $region,
         #[\SensitiveParameter] protected string $apiKey,
         protected string $name = 'azure',
+        protected NonTranslatableStrategyInterface $nonTranslatableStrategy = new NullStrategy(),
     ) {
         if ($this->endpoint === '' || $this->region === '' || $this->apiKey === '') {
             throw new \InvalidArgumentException(
@@ -80,6 +84,16 @@ class MachineTranslator implements MachineTranslatorInterface
     }
     
     /**
+     * Returns the nonTranslatableStrategy.
+     *
+     * @return NonTranslatableStrategyInterface
+     */
+    public function nonTranslatableStrategy(): NonTranslatableStrategyInterface
+    {
+        return $this->nonTranslatableStrategy;
+    }
+    
+    /**
      * Returns the translator name (e.g. "google", "deepl", "azure").
      *
      * @return string
@@ -116,7 +130,7 @@ class MachineTranslator implements MachineTranslatorInterface
         if ($texts === []) {
             return [];
         }
-
+        
         $url = sprintf(
             '%s/translate?api-version=3.0&to=%s',
             rtrim($this->endpoint, '/'),
@@ -124,7 +138,10 @@ class MachineTranslator implements MachineTranslatorInterface
         );
 
         // Azure expects: [ { "Text": "Hello" }, ... ]
-        $payload = array_map(fn($t) => ['Text' => $t], $texts);
+        $payload = array_map(
+            fn($t) => ['Text' => $this->nonTranslatableStrategy->protect($t)],
+            $texts
+        );
 
         $body = $this->streamFactory->createStream(
             json_encode($payload, JSON_UNESCAPED_UNICODE)
@@ -180,7 +197,7 @@ class MachineTranslator implements MachineTranslatorInterface
                 throw new TranslateException('Azure response missing translation text.');
             }
 
-            $results[] = $text;
+            $results[] = $this->nonTranslatableStrategy->unprotect($text);
         }
 
         return $results;

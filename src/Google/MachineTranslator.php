@@ -19,6 +19,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Tobento\Service\MachineTranslator\Exception\QuotaExceededException;
 use Tobento\Service\MachineTranslator\Exception\TranslateException;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class MachineTranslator implements MachineTranslatorInterface
 {
@@ -31,6 +33,7 @@ class MachineTranslator implements MachineTranslatorInterface
      * @param string $endpoint
      * @param string $apiKey
      * @param string $name
+     * @param NonTranslatableStrategyInterface $nonTranslatableStrategy
      */
     public function __construct(
         protected ClientInterface $client,
@@ -39,6 +42,7 @@ class MachineTranslator implements MachineTranslatorInterface
         protected string $endpoint,
         #[\SensitiveParameter] protected string $apiKey,
         protected string $name = 'google',
+        protected NonTranslatableStrategyInterface $nonTranslatableStrategy = new NullStrategy(),
     ) {
         if ($this->endpoint === '' || $this->apiKey === '') {
             throw new \InvalidArgumentException(
@@ -65,6 +69,16 @@ class MachineTranslator implements MachineTranslatorInterface
     public function apiKey(): string
     {
         return $this->apiKey;
+    }
+    
+    /**
+     * Returns the nonTranslatableStrategy.
+     *
+     * @return NonTranslatableStrategyInterface
+     */
+    public function nonTranslatableStrategy(): NonTranslatableStrategyInterface
+    {
+        return $this->nonTranslatableStrategy;
     }
     
     /**
@@ -109,13 +123,18 @@ class MachineTranslator implements MachineTranslatorInterface
         // Google uses: POST https://translation.googleapis.com/language/translate/v2?key=API_KEY
         $url = $this->endpoint . '?key=' . urlencode($this->apiKey);
 
+        $protectedTexts = array_map(
+            fn($t) => $this->nonTranslatableStrategy->protect($t),
+            array_values($texts)
+        );
+        
         // Google expects JSON:
         // {
         //   "q": ["Hello", "World"],
         //   "target": "de"
         // }
         $payload = [
-            'q' => array_values($texts),
+            'q' => $protectedTexts,
             'target' => strtolower($locale),
             'format' => 'text',
         ];
@@ -176,7 +195,7 @@ class MachineTranslator implements MachineTranslatorInterface
                 throw new TranslateException('Google response missing translation text.');
             }
 
-            $results[] = $text;
+            $results[] = $this->nonTranslatableStrategy->unprotect($text);
         }
 
         return $results;

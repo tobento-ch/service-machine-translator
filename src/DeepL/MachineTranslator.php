@@ -19,6 +19,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Tobento\Service\MachineTranslator\Exception\QuotaExceededException;
 use Tobento\Service\MachineTranslator\Exception\TranslateException;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class MachineTranslator implements MachineTranslatorInterface
 {
@@ -31,6 +33,7 @@ class MachineTranslator implements MachineTranslatorInterface
      * @param string $endpoint
      * @param string $apiKey
      * @param string $name
+     * @param NonTranslatableStrategyInterface $nonTranslatableStrategy
      */
     public function __construct(
         protected ClientInterface $client,
@@ -39,6 +42,7 @@ class MachineTranslator implements MachineTranslatorInterface
         protected string $endpoint,
         #[\SensitiveParameter] protected string $apiKey,
         protected string $name = 'deepl',
+        protected NonTranslatableStrategyInterface $nonTranslatableStrategy = new NullStrategy(),
     ) {
         if ($this->endpoint === '' || $this->apiKey === '') {
             throw new \InvalidArgumentException(
@@ -65,6 +69,16 @@ class MachineTranslator implements MachineTranslatorInterface
     public function apiKey(): string
     {
         return $this->apiKey;
+    }
+    
+    /**
+     * Returns the nonTranslatableStrategy.
+     *
+     * @return NonTranslatableStrategyInterface
+     */
+    public function nonTranslatableStrategy(): NonTranslatableStrategyInterface
+    {
+        return $this->nonTranslatableStrategy;
     }
 
     /**
@@ -112,7 +126,7 @@ class MachineTranslator implements MachineTranslatorInterface
         ];
 
         foreach ($texts as $t) {
-            $form['text'][] = $t;
+            $form['text'][] = $this->nonTranslatableStrategy->protect($t);
         }
 
         $body = http_build_query($form, '', '&', PHP_QUERY_RFC3986);
@@ -171,7 +185,7 @@ class MachineTranslator implements MachineTranslatorInterface
                 throw new TranslateException('DeepL response missing translation text.');
             }
 
-            $results[] = $text;
+            $results[] = $this->nonTranslatableStrategy->unprotect($text);
         }
 
         return $results;

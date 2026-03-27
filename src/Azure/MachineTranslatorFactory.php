@@ -19,6 +19,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Tobento\Service\MachineTranslator\Exception\MachineTranslatorCreationException;
 use Tobento\Service\MachineTranslator\MachineTranslatorFactoryInterface;
 use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategy\NullStrategy;
+use Tobento\Service\MachineTranslator\NonTranslatableStrategyInterface;
 
 class  MachineTranslatorFactory implements MachineTranslatorFactoryInterface
 {
@@ -26,6 +28,7 @@ class  MachineTranslatorFactory implements MachineTranslatorFactoryInterface
         'endpoint' => 'https://api.cognitive.microsofttranslator.com',
         'region' => 'westeurope',
         'apiKey' => null, // must be provided by user
+        'nonTranslatableStrategy' => null,
     ];
     
     /**
@@ -59,6 +62,11 @@ class  MachineTranslatorFactory implements MachineTranslatorFactoryInterface
             // Merge defaults with user config
             $config = array_replace($this->defaults, $config);
             
+            // Normalize strategy (ensure it's never null)
+            if (!$config['nonTranslatableStrategy'] instanceof NonTranslatableStrategyInterface) {
+                $config['nonTranslatableStrategy'] = new NullStrategy();
+            }
+            
             // Validate required config
             if (empty($config['apiKey'])) {
                 throw new MachineTranslatorCreationException(
@@ -74,6 +82,7 @@ class  MachineTranslatorFactory implements MachineTranslatorFactoryInterface
                 region: $config['region'],
                 apiKey: $config['apiKey'],
                 name: $name,
+                nonTranslatableStrategy: $config['nonTranslatableStrategy'],
             );
 
         } catch (\Throwable $e) {
