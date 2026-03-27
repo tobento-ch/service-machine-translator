@@ -1,0 +1,62 @@
+{
+    "name": "tobento/service-machine-translator",
+    "version": "2.0",
+    "type": "library",
+    "description": "A flexible and extensible machine translator service built around clean interfaces.",
+    "keywords": [
+        "tobento",
+        "package",
+        "machine",
+        "translator",
+        "translation",
+        "deepl",
+        "google",
+        "azure",
+        "psr",
+        "psr-18",
+        "psr-17",
+        "psr-7"
+    ],
+    "homepage": "https://www.tobento.ch",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tobias Strub",
+            "email": "info@tobento.ch",
+            "homepage": "https://www.tobento.ch"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.4",
+        "psr/http-client": "^1.0",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.0",
+        "tobento/service-autowire": "^2.0"
+    },
+    "suggest": {
+        "tobento/service-container": "May be used for LazyMachineTranslators"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.3",
+        "vimeo/psalm": "^6.13",
+        "nyholm/psr7": "^1.8",
+        "symfony/http-client": "^8.0",
+        "tobento/service-container": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tobento\\Service\\MachineTranslator\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tobento\\Service\\MachineTranslator\\Test\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --testdox --colors=always",
+        "psalm": "vendor/bin/psalm"
+    }
+}
