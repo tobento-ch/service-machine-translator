@@ -1,6 +1,6 @@
 {
     "name": "tobento/service-machine-translator",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "type": "library",
     "description": "A flexible and extensible machine translator service built around clean interfaces.",
     "keywords": [
@@ -30,20 +30,23 @@
     "prefer-stable": true,
     "require": {
         "php": ">=8.4",
+        "psr/event-dispatcher": "^1.0",
         "psr/http-client": "^1.0",
         "psr/http-message": "^2.0",
         "psr/http-factory": "^1.0",
         "tobento/service-autowire": "^2.0"
     },
     "suggest": {
-        "tobento/service-container": "May be used for LazyMachineTranslators"
+        "tobento/service-container": "May be used for LazyMachineTranslators",
+        "tobento/service-event": "May be used to support events"
     },
     "require-dev": {
         "phpunit/phpunit": "^12.3",
         "vimeo/psalm": "^6.13",
         "nyholm/psr7": "^1.8",
         "symfony/http-client": "^8.0",
-        "tobento/service-container": "^2.0"
+        "tobento/service-container": "^2.0",
+        "tobento/service-event": "^2.0"
     },
     "autoload": {
         "psr-4": {
