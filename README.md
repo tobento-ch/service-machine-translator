@@ -31,6 +31,9 @@ It ships with multiple translator implementations, each following the same inter
         - [Null Strategy](#null-strategy)
         - [Placeholder Strategy](#placeholder-strategy)
         - [Using Strategies with Translators](#using-strategies-with-translators)
+    - [Adapters](#adapters)
+        - [Event Machine Translator Adapter](#event-machine-translator-adapter)
+    - [Events](#events)
 - [Credits](#credits)
 ___
 
@@ -428,7 +431,7 @@ $translated = $translators->translate(
 );
 ```
 
-### Lazy Machine Translators
+### Lazy Translators
 
 The `LazyMachineTranslators` class allows you to register machine translators without creating them upfront.  
 Translators are instantiated **only when first accessed**, which is useful when using factories, callables, or configuration‑based setups.
@@ -595,6 +598,49 @@ $translator = $factory->createTranslator(
 echo $translator->translate('Hello :name', 'de');
 // "Hallo :name"
 ```
+
+## Adapters
+
+### Event Machine Translator Adapter
+
+The **Event Machine Translator Adapter** decorates any translator and dispatches events whenever a translation succeeds or fails.  
+This allows you to hook into translation activity for logging, monitoring, debugging, analytics, or custom workflows.
+
+#### Example
+
+```php
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Tobento\Service\MachineTranslator\Adapter;
+use Tobento\Service\MachineTranslator\MachineTranslatorInterface;
+
+$translator = new Adapter\EventMachineTranslator(
+    translator: $translator, // MachineTranslatorInterface
+    events: $eventDispatcher, // EventDispatcherInterface
+);
+```
+
+The adapter behaves exactly like the wrapped translator and does **not** modify translation results or error handling.  
+It simply emits events after each translation attempt.
+
+See the [Events](#events) section for a full list of dispatched events and their descriptions.
+
+#### Notes
+
+- The adapter dispatches events **after** translation attempts.
+- Exceptions are **not swallowed** - they are rethrown after the failure event is dispatched.
+- Both single and multiple translations are normalized to arrays for consistent event payloads.
+
+## Events
+
+```php
+use Tobento\Service\MachineTranslator\Event;
+```
+
+| Event Class | Description |
+|-------------|-------------|
+| `Event\TranslationSuccess::class` | Dispatched after one or more texts have been successfully translated. |
+| `Event\TranslationFailed::class` | Dispatched after a translation attempt (single or many) has failed. |
+
 
 # Credits
 
