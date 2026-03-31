@@ -167,26 +167,3 @@ class RotatingMachineTranslatorTest extends TestCase
         $this->assertSame('B', $rotator->translate('x', 'en'));
     }
 }
-
-/**
- * Test double: always throws TranslateException
- */
-class FailingTranslator implements MachineTranslatorInterface
-{
-    public function __construct(protected string $name) {}
-
-    public function name(): string
-    {
-        return $this->name;
-    }
-
-    public function translate(string $text, string $locale): string
-    {
-        throw new TranslateException('fail');
-    }
-
-    public function translateMany(array $texts, string $locale): array
-    {
-        throw new TranslateException('fail');
-    }
-}
